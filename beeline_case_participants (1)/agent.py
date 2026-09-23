@@ -16,7 +16,7 @@ import pandas as pd
 
 
 PER_CUSTOMER_STD = 0.804
-PRODUCTION_CHANNELS = ("push", "sms", "digital_ads")
+PRODUCTION_CHANNELS = ("push", "sms", "digital_ads", "call")
 MAX_FINAL_CAMPAIGNS = 5
 MAX_CUSTOMERS_PER_CAMPAIGN = 5000
 
@@ -46,6 +46,8 @@ PRIOR_CANDIDATES = [
 class Agent:
     """Explore promising tariff transitions and exploit robust winners."""
 
+    production_channels = PRODUCTION_CHANNELS
+
     def act(self, env) -> list[dict]:
         profile = env.customer_profile
         known_tariffs = set(env.tariffs["tariff_plan_code"])
@@ -56,15 +58,16 @@ class Agent:
 
         observations: dict[tuple[str, str, str], list[tuple[int, float]]] = defaultdict(list)
 
-        # Broad exploration: enough observations to reject clearly weak arms,
-        # while preserving most of the 15k contact limit for final campaigns.
-        for candidate in candidates[:10]:
-            self._pilot(env, candidate, 120, observations)
+        # Explore twelve historical priors. This covers more possible hidden
+        # winners than the original ten-arm policy while keeping total pilot
+        # reach unchanged once the confirmation stage is included.
+        for candidate in candidates[:12]:
+            self._pilot(env, candidate, 100, observations)
 
-        # Confirm the most promising observations with the maximum pilot size.
+        # Confirm the most promising observations with a larger sample.
         first_pass = self._rank(candidates, observations, profile)
-        for candidate in first_pass[:4]:
-            self._pilot(env, candidate, 200, observations)
+        for candidate in first_pass[:5]:
+            self._pilot(env, candidate, 160, observations)
 
         ranked = self._rank(candidates, observations, profile)
         selected = []
@@ -103,7 +106,7 @@ class Agent:
 
         push_multiplier = float(env.channels["push"]["conversion_multiplier"])
         choices = (None,) + tuple(
-            channel for channel in PRODUCTION_CHANNELS if channel in env.channels
+            channel for channel in self.production_channels if channel in env.channels
         )
         economics = []
 
@@ -125,6 +128,11 @@ class Agent:
                 relative_multiplier = (
                     float(channel_config["conversion_multiplier"]) / push_multiplier
                 )
+                # Call has a multiplier above one and may hit the conversion
+                # probability cap. 2.0 is its worst-case relative gain versus
+                # push; using the raw 2.4 would sometimes overestimate value.
+                if channel == "call":
+                    relative_multiplier = min(relative_multiplier, 2.0)
                 cost_per_contact = float(channel_config["cost_per_contact"])
                 conservative_net = n_customers * (
                     mean_arpu * stats["lower_bound"] * relative_multiplier

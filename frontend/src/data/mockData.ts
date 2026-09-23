@@ -8,12 +8,12 @@ import type {
 
 export const mockDashboard: DashboardData = {
   baselineArpu: 150_641_084,
-  campaignNetGain: 3_630_000,
+  campaignNetGain: 3_410_000,
   budgetUsed: 71_840,
   budgetLimit: 100_000,
   contactsUsed: 8_940,
   contactsLimit: 15_000,
-  pilotsUsed: 14,
+  pilotsUsed: 17,
   pilotsLimit: 20,
   finalCampaigns: 5,
   finalCampaignLimit: 10,
@@ -195,10 +195,10 @@ export const mockPilots: Pilot[] = [
 export const mockSimulation: SimulationData = {
   profitableRuns: 100,
   totalRuns: 100,
-  medianNet: 3_630_000,
-  minimumNet: 2_020_000,
-  maximumNet: 4_110_000,
-  controlSeedNet: 2_580_000,
+  medianNet: 3_414_203,
+  minimumNet: 2_112_530,
+  maximumNet: 4_039_759,
+  controlSeedNet: 2_702_002,
   distribution: [
     { bin: "2.0m", count: 4 },
     { bin: "2.5m", count: 18 },
@@ -208,7 +208,7 @@ export const mockSimulation: SimulationData = {
   ],
   comparison: [
     { name: "Push-only", value: 2.31 },
-    { name: "Channel-optimized", value: 3.63 },
+    { name: "Channel-optimized", value: 3.41 },
   ],
   source: "demo",
 };

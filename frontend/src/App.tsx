@@ -161,7 +161,7 @@ function Overview({ dashboard }: { dashboard: DashboardData }) {
     [
       "Pilots",
       `${dashboard.pilotsUsed} / ${dashboard.pilotsLimit}`,
-      "10 initial + 4 confirmation",
+      "12 initial + 5 confirmation",
       FlaskConical,
     ],
     [
@@ -189,7 +189,7 @@ function Overview({ dashboard }: { dashboard: DashboardData }) {
           </p>
         </div>
         <div className="hero-orbit">
-          <b>+3.63m</b>
+          <b>+3.41m</b>
           <span>median mock net gain</span>
         </div>
       </section>
@@ -456,8 +456,8 @@ function Intelligence({
       <section className="stage-grid">
         {[
           ["15", "source tariff hypotheses"],
-          ["10 × 120", "initial push pilots"],
-          ["4 × 200", "confirmation pilots"],
+          ["12 × 100", "initial push pilots"],
+          ["5 × 160", "confirmation pilots"],
           ["1", "channel-optimized portfolio"],
         ].map(([value, label]) => (
           <article key={label}>

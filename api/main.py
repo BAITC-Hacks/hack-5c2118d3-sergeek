@@ -58,9 +58,9 @@ _latest_lock = Lock()
 _latest_summary = {
     "runs": 100,
     "positive_runs": 100,
-    "median_net": 3_628_771.0,
-    "min_net": 2_021_670.0,
-    "max_net": 4_107_664.0,
+    "median_net": 3_414_203.0,
+    "min_net": 2_112_530.0,
+    "max_net": 4_039_759.0,
     "mean_net": None,
     "seed_start": 0,
     "source": "verified local mock run",

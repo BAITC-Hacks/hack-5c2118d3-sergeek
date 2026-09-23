@@ -124,7 +124,7 @@ function mapSimulation(data: ApiSimulation): SimulationData {
     medianNet: data.median_net,
     minimumNet: data.min_net,
     maximumNet: data.max_net,
-    controlSeedNet: 2_578_786,
+    controlSeedNet: 2_702_002,
     distribution,
     comparison: [
       { name: "Push-only", value: 2.31 },
