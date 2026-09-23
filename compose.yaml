@@ -9,3 +9,13 @@ services:
     command: ["sleep", "infinity"]
     stdin_open: true
     tty: true
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    working_dir: /workspace
+    volumes:
+      - ".:/workspace"
+    ports:
+      - "8000:8000"
