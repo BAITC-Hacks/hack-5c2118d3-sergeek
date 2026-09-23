@@ -25,14 +25,30 @@ function titleChannel(channel: string): Channel {
   return names[channel] ?? 'Push'
 }
 
+function humanizeTariff(value: string | null) {
+  if (!value) return 'Не указан'
+  const match = value.match(/^tariff_(\d+)$/)
+  return match ? `Тариф ${match[1]}` : value.replaceAll('_', ' ')
+}
+
+function humanizeSegment(value: string | null) {
+  const labels: Record<string, string> = { low: 'Низкий ARPU', mid: 'Средний ARPU', high: 'Высокий ARPU' }
+  return value ? labels[value.toLowerCase()] ?? value.replaceAll('_', ' ') : 'Не указан'
+}
+
+function humanizeCampaign(value: string, index: number) {
+  const match = value.match(/^adaptive_(\d+)_tariff_\d+_tariff_\d+_/)
+  return match ? `Персональное предложение ${match[1]}` : `Тарифное предложение ${index + 1}`
+}
+
 function mapCampaign(item: ApiCampaign, index: number): Campaign {
   const liftRatio = item.gross_lift > 0 ? item.net_gain / item.gross_lift : 0
   return {
-    id: `C-${String(index + 1).padStart(2, '0')}`, name: item.campaign_name, currentTariff: item.current_tariff ?? 'Not specified',
-    arpuSegment: item.arpu_segment ?? 'Not specified', targetTariff: item.target_tariff, channel: titleChannel(item.channel), audienceSize: item.audience_size,
+    id: `C-${String(index + 1).padStart(2, '0')}`, name: humanizeCampaign(item.campaign_name, index), currentTariff: humanizeTariff(item.current_tariff),
+    arpuSegment: humanizeSegment(item.arpu_segment), targetTariff: humanizeTariff(item.target_tariff), channel: titleChannel(item.channel), audienceSize: item.audience_size,
     communicationCost: item.communication_cost, expectedGrossLift: item.gross_lift, expectedNetGain: item.net_gain,
     confidence: liftRatio > 0.9 ? 'High' : 'Medium', status: item.status === 'selected' ? 'Ready' : 'Testing',
-    rationale: 'Selected by the local mock agent after pilots, uncertainty adjustment and portfolio constraint checks.',
+    rationale: 'Предложение прошло пилоты, проверку неопределённости и отбор с учётом бюджета, охвата и пересечения аудиторий.',
   }
 }
 
@@ -41,7 +57,7 @@ function mapSimulation(data: ApiSimulation): SimulationData {
   const distribution = values.length ? buildDistribution(values) : mockSimulation.distribution
   return {
     profitableRuns: data.positive_runs, totalRuns: data.runs, medianNet: data.median_net, minimumNet: data.min_net, maximumNet: data.max_net,
-    controlSeedNet: 2_578_786, distribution, comparison: [{ name: 'Push-only', value: 2.58 }, { name: 'Channel-optimized', value: Number((data.median_net / 1_000_000).toFixed(2)) }], source: 'api',
+    controlSeedNet: 2_578_786, distribution, comparison: [{ name: 'Только пуш', value: 2.58 }, { name: 'Оптимальный канал', value: Number((data.median_net / 1_000_000).toFixed(2)) }], source: 'api',
   }
 }
 
@@ -49,7 +65,7 @@ function buildDistribution(values: number[]) {
   const min = Math.min(...values); const max = Math.max(...values); const size = Math.max((max - min) / 5, 1)
   return Array.from({ length: 5 }, (_, index) => {
     const floor = min + index * size; const ceiling = floor + size
-    return { bin: `${(floor / 1_000_000).toFixed(1)}m`, count: values.filter((value) => index === 4 ? value >= floor && value <= ceiling : value >= floor && value < ceiling).length }
+    return { bin: `${(floor / 1_000_000).toFixed(1).replace('.', ',')} млн`, count: values.filter((value) => index === 4 ? value >= floor && value <= ceiling : value >= floor && value < ceiling).length }
   })
 }
 
@@ -64,7 +80,7 @@ export const api = {
     } catch { return { data: mockDashboard, source: 'demo' } }
   },
   campaigns: async (): Source<Campaign[]> => { try { const response = await fetchApi<{ items: ApiCampaign[] }>('/api/campaigns'); return { data: response.items.map(mapCampaign), source: 'api' } } catch { return { data: mockCampaigns, source: 'demo' } } },
-  pilots: async (): Source<Pilot[]> => { try { const response = await fetchApi<{ items: ApiPilot[] }>('/api/pilots'); return { data: response.items.map((item, index) => ({ id: `P-${String(index + 1).padStart(2, '0')}`, phase: index < 10 ? 'Initial' : 'Confirmation', title: item.name, audience: item.customers, result: `${(item.observed_lift_ratio * 100).toFixed(1)}% observed lift`, confidence: Math.min(99, Math.max(50, Math.round(60 + item.observed_lift_ratio * 100))), status: 'Completed' })), source: 'api' } } catch { return { data: mockPilots, source: 'demo' } } },
+  pilots: async (): Source<Pilot[]> => { try { const response = await fetchApi<{ items: ApiPilot[] }>('/api/pilots'); return { data: response.items.map((item, index) => ({ id: `P-${String(index + 1).padStart(2, '0')}`, phase: index < 10 ? 'Initial' : 'Confirmation', title: humanizeCampaign(item.name, index), audience: item.customers, result: `${(item.observed_lift_ratio * 100).toFixed(1).replace('.', ',')}% наблюдаемый эффект`, confidence: Math.min(99, Math.max(50, Math.round(60 + item.observed_lift_ratio * 100))), status: 'Completed' })), source: 'api' } } catch { return { data: mockPilots, source: 'demo' } } },
   simulation: async (): Source<SimulationData> => { try { return { data: mapSimulation(await fetchApi<ApiSimulation>('/api/simulations/latest')), source: 'api' } } catch { return { data: mockSimulation, source: 'demo' } } },
   limits: async (): Source<DataLimits> => { try { const data = await fetchApi<ApiDashboard>('/api/dashboard'); return { source: 'api', data: { subscribers: data.audience_size, baselineArpu: data.baseline_arpu, budget: data.limits.budget, contacts: data.limits.contacts, pilots: data.limits.pilots, pilotSize: 200, finalCampaigns: data.limits.campaigns, campaignSize: data.limits.customers_per_campaign, channels: Object.entries(data.channels).map(([name, details]) => ({ name: titleChannel(name), cost: details.cost_per_contact, multiplier: `${details.conversion_multiplier.toFixed(2)}×` })) } } } catch { return { data: mockLimits, source: 'demo' } } },
   runSimulation: async (): Source<SimulationData> => { try { return { data: mapSimulation(await fetchApi<ApiSimulation>('/api/simulations/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runs: 10, seed_start: 0 }) })), source: 'api' } } catch { return { data: mockSimulation, source: 'demo' } } },
