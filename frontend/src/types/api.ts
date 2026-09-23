@@ -49,6 +49,7 @@ export interface Pilot {
 }
 
 export interface SimulationData {
+  seedStart: number;
   profitableRuns: number;
   totalRuns: number;
   medianNet: number;

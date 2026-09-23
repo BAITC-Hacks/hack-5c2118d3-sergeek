@@ -80,6 +80,7 @@ type ApiPilot = {
   cost: number;
 };
 type ApiSimulation = {
+  seed_start: number;
   runs: number;
   positive_runs: number;
   median_net: number;
@@ -138,6 +139,7 @@ function mapSimulation(data: ApiSimulation): SimulationData {
     : [];
   return {
     profitableRuns: data.positive_runs,
+    seedStart: data.seed_start,
     totalRuns: data.runs,
     medianNet: data.median_net,
     minimumNet: data.min_net,
