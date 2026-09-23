@@ -17,6 +17,21 @@ import type {
 const apiBase = import.meta.env.VITE_API_URL ?? "";
 type Source<T> = Promise<{ data: T; source: "api" | "demo" }>;
 
+function humanizeTariff(value: string | null): string {
+  return value ? value.replace(/^tariff_/, "Тариф ") : "Не указан";
+}
+
+function humanizeSegment(value: string | null): string {
+  const labels: Record<string, string> = {
+    LOW: "Низкий ARPU", MID: "Средний ARPU", HIGH: "Высокий ARPU",
+  };
+  return value ? labels[value] ?? value : "Не указан";
+}
+
+function channelLabel(value: string): string {
+  return ({ Push: "Пуш", SMS: "SMS", "Digital ads": "Цифровая реклама", Call: "Звонок" } as Record<string, string>)[value] ?? value;
+}
+
 type ApiDashboard = {
   baseline_arpu: number;
   net_gain: number;
@@ -76,7 +91,10 @@ type ApiSimulation = {
 };
 
 async function fetchApi<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBase}${path}`, init);
+  const response = await fetch(`${apiBase}${path}`, {
+    ...init,
+    signal: AbortSignal.timeout(path.endsWith("/run") ? 120_000 : 15_000),
+  });
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
   return response.json() as Promise<T>;
 }
@@ -94,10 +112,10 @@ function titleChannel(channel: string): Channel {
 function mapCampaign(item: ApiCampaign, index: number): Campaign {
   return {
     id: `C-${String(index + 1).padStart(2, "0")}`,
-    name: item.campaign_name,
-    currentTariff: item.current_tariff ?? "Not specified",
-    arpuSegment: item.arpu_segment ?? "Not specified",
-    targetTariff: item.target_tariff,
+    name: `Предложение ${index + 1}`,
+    currentTariff: humanizeTariff(item.current_tariff),
+    arpuSegment: humanizeSegment(item.arpu_segment),
+    targetTariff: humanizeTariff(item.target_tariff),
     channel: titleChannel(item.channel),
     audienceSize: item.audience_size,
     communicationCost: item.communication_cost,
@@ -109,7 +127,7 @@ function mapCampaign(item: ApiCampaign, index: number): Campaign {
     lowerBound: item.lower_bound,
     status: item.status === "selected" ? "Ready" : "Testing",
     rationale:
-      "Selected by the local mock agent after pilots, uncertainty adjustment and portfolio constraint checks.",
+      "Кампания выбрана по результатам пилотов с учётом неопределённости, бюджета и пересечения аудиторий.",
   };
 }
 
@@ -117,7 +135,7 @@ function mapSimulation(data: ApiSimulation): SimulationData {
   const values = data.values ?? [];
   const distribution = values.length
     ? buildDistribution(values)
-    : mockSimulation.distribution;
+    : [];
   return {
     profitableRuns: data.positive_runs,
     totalRuns: data.runs,
@@ -127,11 +145,12 @@ function mapSimulation(data: ApiSimulation): SimulationData {
     controlSeedNet: 2_702_002,
     distribution,
     comparison: [
-      { name: "Push-only", value: 2.31 },
+      { name: "Минимум", value: data.min_net / 1_000_000 },
       {
-        name: "Channel-optimized",
+        name: "Медиана",
         value: Number((data.median_net / 1_000_000).toFixed(2)),
       },
+      { name: "Максимум", value: data.max_net / 1_000_000 },
     ],
     source: "api",
   };
@@ -145,7 +164,7 @@ function buildDistribution(values: number[]) {
     const floor = min + index * size;
     const ceiling = floor + size;
     return {
-      bin: `${(floor / 1_000_000).toFixed(1)}m`,
+      bin: `${(floor / 1_000_000).toFixed(1).replace(".", ",")} млн`,
       count: values.filter((value) =>
         index === 4
           ? value >= floor && value <= ceiling
@@ -182,7 +201,7 @@ export const api = {
               }),
               {},
             ),
-          ).map(([name, value]) => ({ name, value }))
+          ).map(([name, value]) => ({ name: channelLabel(name), value }))
         : mockDashboard.channelBudget;
       return {
         source: "api",
@@ -204,9 +223,9 @@ export const api = {
             value: Math.round(item.expectedNetGain / 1000),
           })),
           audienceCoverage: [
-            { name: "Reached", value: overview.total_contacts },
+            { name: "Использовано контактов", value: overview.total_contacts },
             {
-              name: "Remaining",
+              name: "Осталось контактов",
               value: Math.max(
                 0,
                 overview.limits.contacts - overview.total_contacts,
@@ -235,10 +254,10 @@ export const api = {
       return {
         data: response.items.map((item, index) => ({
           id: `P-${String(index + 1).padStart(2, "0")}`,
-          phase: index < 10 ? "Initial" : "Confirmation",
-          title: item.name,
+          phase: index < 12 ? "Initial" : "Confirmation",
+          title: `Пилот ${index + 1}`,
           audience: item.customers,
-          result: `${(item.observed_lift_ratio * 100).toFixed(1)}% observed lift`,
+          result: `${(item.observed_lift_ratio * 100).toFixed(1).replace(".", ",")}% наблюдаемый эффект`,
           observedLiftRatio: item.observed_lift_ratio,
           standardError: item.standard_error,
           lowerBound: item.lower_bound,
@@ -287,14 +306,14 @@ export const api = {
       return { data: mockLimits, source: "demo" };
     }
   },
-  runSimulation: async (): Source<SimulationData> => {
+  runSimulation: async (seedStart: number): Source<SimulationData> => {
     try {
       return {
         data: mapSimulation(
           await fetchApi<ApiSimulation>("/api/simulations/run", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ runs: 10, seed_start: 0 }),
+            body: JSON.stringify({ runs: 10, seed_start: seedStart }),
           }),
         ),
         source: "api",

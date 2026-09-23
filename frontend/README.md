@@ -26,7 +26,11 @@ Open `http://localhost:5173`.
 
 ## Data connection
 
-Copy `.env.example` to `.env` and set `VITE_API_URL` when FastAPI is available. The service layer expects:
+Русский интерфейс использует относительные запросы `/api/*`.
+В Docker их перенаправляет Nginx, при `npm run dev` — Vite proxy
+на `http://127.0.0.1:8000`. Оставьте `VITE_API_URL` пустым.
+Для API на другом адресе можно указать его URL явно.
+The service layer expects:
 
 - `GET /api/dashboard`
 - `GET /api/campaigns`
