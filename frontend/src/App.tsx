@@ -21,13 +21,15 @@ function App() {
   const [simulationState, setSimulationState] = useState<SimulationData>()
   const [isSimulationRunning, setIsSimulationRunning] = useState(false)
   const [simulationNotice, setSimulationNotice] = useState('')
+  const [nextSeedStart, setNextSeedStart] = useState(10)
   if (isLoading || !dashboard || !simulation || !limits) return <div className="loading-screen"><span className="bee-loader" />Загружаем данные кампаний…</div>
   const activeSimulation = simulationState ?? simulation
   const run = async () => {
     setIsSimulationRunning(true)
-    setSimulationNotice('Считаем 10 новых сценариев…')
-    const result = await runSimulation()
+    setSimulationNotice(`Считаем сценарии ${nextSeedStart}–${nextSeedStart + 9}…`)
+    const result = await runSimulation(nextSeedStart)
     setSimulationState(result.data)
+    setNextSeedStart((seed) => seed + 10)
     setSimulationNotice(result.source === 'api'
       ? `Симуляция завершена: ответ FastAPI получен в ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}.`
       : 'FastAPI недоступен: показан сохранённый демо-результат.')
