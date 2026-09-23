@@ -30,9 +30,12 @@ PRIOR_CANDIDATES = [
     ("tariff_4", "LOW", "tariff_9"),
     ("tariff_14", "LOW", "tariff_9"),
     ("tariff_11", "LOW", "tariff_8"),
+    ("tariff_12", "LOW", "tariff_8"),
     ("tariff_10", "MID", "tariff_11"),
-    ("tariff_11", "MID", "tariff_8"),
-    ("tariff_3", "MID", "tariff_8"),
+    ("tariff_10", "LOW", "tariff_9"),
+    ("tariff_8", "MID", "tariff_11"),
+    ("tariff_10", "MID", "tariff_8"),
+    ("tariff_8", "HIGH", "tariff_10"),
 ]
 
 
