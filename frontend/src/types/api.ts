@@ -1,5 +1,4 @@
 export type Channel = "Push" | "SMS" | "Digital ads" | "Call";
-export type Confidence = "High" | "Medium" | "Testing";
 
 export interface Campaign {
   id: string;
@@ -12,7 +11,10 @@ export interface Campaign {
   communicationCost: number;
   expectedGrossLift: number;
   expectedNetGain: number;
-  confidence: Confidence;
+  pilotSampleSize: number;
+  observedLiftRatio: number | null;
+  standardError: number | null;
+  lowerBound: number | null;
   status: "Ready" | "Testing";
   rationale: string;
 }
@@ -40,7 +42,9 @@ export interface Pilot {
   title: string;
   audience: number;
   result: string;
-  confidence: number;
+  observedLiftRatio: number;
+  standardError: number;
+  lowerBound: number;
   status: "Completed" | "Running";
 }
 

@@ -380,7 +380,7 @@ function Portfolio({ campaigns }: { campaigns: Campaign[] }) {
                 <th>Comms cost</th>
                 <th>Gross lift</th>
                 <th>Net gain</th>
-                <th>Confidence</th>
+                <th>Pilot lower bound</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -403,12 +403,10 @@ function Portfolio({ campaigns }: { campaigns: Campaign[] }) {
                   <td className="positive">
                     +{money.format(item.expectedNetGain)} units
                   </td>
-                  <td>
-                    <span
-                      className={`confidence ${item.confidence.toLowerCase()}`}
-                    >
-                      {item.confidence}
-                    </span>
+                  <td className="positive">
+                    {item.lowerBound === null
+                      ? "n/a"
+                      : `${(item.lowerBound * 100).toFixed(1)}%`}
                   </td>
                   <td>
                     <span
@@ -439,9 +437,10 @@ function Intelligence({
   pilots: Pilot[];
   campaigns: Campaign[];
 }) {
-  const confidence = pilots.map((pilot) => ({
+  const evidence = pilots.map((pilot) => ({
     name: pilot.id,
-    value: pilot.confidence,
+    observed: Number((pilot.observedLiftRatio * 100).toFixed(1)),
+    lowerBound: Number((pilot.lowerBound * 100).toFixed(1)),
   }));
   const featured = campaigns[0];
   return (
@@ -469,15 +468,26 @@ function Intelligence({
       </section>
       <section className="intelligence-grid">
         <ChartCard
-          title="Confidence by observed pilot"
-          note="Weighted mean, standard error and lower confidence bound"
+          title="Observed lift and lower bound"
+          note="Measured pilot effect with an uncertainty penalty"
         >
           <ResponsiveContainer width="100%" height={245}>
-            <BarChart data={confidence}>
+            <BarChart data={evidence}>
               <XAxis dataKey="name" tickLine={false} axisLine={false} />
-              <YAxis domain={[0, 100]} tickLine={false} axisLine={false} />
+              <YAxis tickLine={false} axisLine={false} unit="%" />
               <Tooltip />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#45a869" />
+              <Bar
+                dataKey="observed"
+                name="Observed lift"
+                radius={[6, 6, 0, 0]}
+                fill="#ffd900"
+              />
+              <Bar
+                dataKey="lowerBound"
+                name="Lower bound"
+                radius={[6, 6, 0, 0]}
+                fill="#45a869"
+              />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -490,8 +500,12 @@ function Intelligence({
             audience.
           </p>
           <div>
-            <span>Observed net</span>
-            <b>+{money.format(featured?.expectedNetGain ?? 0)} units</b>
+            <span>Pilot lower bound</span>
+            <b>
+              {featured?.lowerBound === null || featured?.lowerBound === undefined
+                ? "n/a"
+                : `${(featured.lowerBound * 100).toFixed(1)}%`}
+            </b>
           </div>
           <div>
             <span>Selected channel</span>
@@ -520,7 +534,10 @@ function Intelligence({
               </small>
             </div>
             <span>{pilot.result}</span>
-            <strong>{pilot.confidence}% confidence</strong>
+            <strong>
+              LB {(pilot.lowerBound * 100).toFixed(1)}% · SE{" "}
+              {(pilot.standardError * 100).toFixed(1)}%
+            </strong>
           </article>
         ))}
       </section>
@@ -772,6 +789,15 @@ function CampaignDialog({
             <span>
               <small>Channel</small>
               <ChannelBadge channel={campaign.channel} />
+            </span>
+            <span>
+              <small>Pilot evidence</small>
+              <b>
+                n={campaign.pilotSampleSize} · LB{" "}
+                {campaign.lowerBound === null
+                  ? "n/a"
+                  : `${(campaign.lowerBound * 100).toFixed(1)}%`}
+              </b>
             </span>
           </div>
           <div className="dialog-route">

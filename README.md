@@ -98,6 +98,12 @@ docker compose exec hackathon python local_eval.py --runs 10
 docker compose exec hackathon python make_submission.py
 ```
 
+Контрактные smoke-тесты на десяти seed:
+
+```bash
+docker compose exec api python -m unittest discover -s tests -v
+```
+
 После запуска API доступно по адресу `http://localhost:8000`, интерактивная
 OpenAPI-документация — `http://localhost:8000/docs`.
 

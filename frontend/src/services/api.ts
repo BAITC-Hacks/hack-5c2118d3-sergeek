@@ -49,12 +49,18 @@ type ApiCampaign = {
   communication_cost: number;
   gross_lift: number;
   net_gain: number;
+  pilot_sample_size: number;
+  observed_lift_ratio: number | null;
+  standard_error: number | null;
+  lower_bound: number | null;
   status: string;
 };
 type ApiPilot = {
   name: string;
   customers: number;
   observed_lift_ratio: number;
+  standard_error: number;
+  lower_bound: number;
   channel: string;
   cost: number;
 };
@@ -86,7 +92,6 @@ function titleChannel(channel: string): Channel {
 }
 
 function mapCampaign(item: ApiCampaign, index: number): Campaign {
-  const liftRatio = item.gross_lift > 0 ? item.net_gain / item.gross_lift : 0;
   return {
     id: `C-${String(index + 1).padStart(2, "0")}`,
     name: item.campaign_name,
@@ -98,7 +103,10 @@ function mapCampaign(item: ApiCampaign, index: number): Campaign {
     communicationCost: item.communication_cost,
     expectedGrossLift: item.gross_lift,
     expectedNetGain: item.net_gain,
-    confidence: liftRatio > 0.9 ? "High" : "Medium",
+    pilotSampleSize: item.pilot_sample_size,
+    observedLiftRatio: item.observed_lift_ratio,
+    standardError: item.standard_error,
+    lowerBound: item.lower_bound,
     status: item.status === "selected" ? "Ready" : "Testing",
     rationale:
       "Selected by the local mock agent after pilots, uncertainty adjustment and portfolio constraint checks.",
@@ -231,10 +239,9 @@ export const api = {
           title: item.name,
           audience: item.customers,
           result: `${(item.observed_lift_ratio * 100).toFixed(1)}% observed lift`,
-          confidence: Math.min(
-            99,
-            Math.max(50, Math.round(60 + item.observed_lift_ratio * 100)),
-          ),
+          observedLiftRatio: item.observed_lift_ratio,
+          standardError: item.standard_error,
+          lowerBound: item.lower_bound,
           status: "Completed",
         })),
         source: "api",

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import sys
+from collections import defaultdict
+from math import sqrt
 from pathlib import Path
 from threading import Lock
 
@@ -65,6 +67,9 @@ _latest_summary = {
     "is_mock": True,
 }
 
+PER_CUSTOMER_STD = 0.804
+LOWER_BOUND_PENALTY = 0.75
+
 
 def _make_env(seed: int):
     return make_mock_env(
@@ -101,22 +106,52 @@ def _run_agent(seed: int) -> dict:
         team_id="sergeek",
     )
 
+    observations = defaultdict(list)
     pilot_history = []
     for campaign, observation in zip(pilot_campaigns, env.pilot_history):
+        key = (
+            campaign.get("filter_current_tariff"),
+            campaign.get("filter_arpu_segment"),
+            campaign["target_tariff"],
+        )
+        sample_size = int(observation["n_customers"])
+        observed_lift = float(observation["observed_lift_ratio"])
+        observations[key].append((sample_size, observed_lift))
+        standard_error = PER_CUSTOMER_STD / sqrt(sample_size)
         pilot_history.append({
             "name": campaign["campaign_name"],
             "current_tariff": campaign.get("filter_current_tariff"),
             "arpu_segment": campaign.get("filter_arpu_segment"),
             "target_tariff": campaign["target_tariff"],
             "channel": campaign["channel"],
-            "customers": observation["n_customers"],
-            "observed_lift_ratio": observation["observed_lift_ratio"],
+            "customers": sample_size,
+            "observed_lift_ratio": observed_lift,
+            "standard_error": standard_error,
+            "lower_bound": observed_lift - LOWER_BOUND_PENALTY * standard_error,
             "cost": observation["cost"],
         })
 
     final_details = result["campaigns_detail"][len(pilot_campaigns):]
     campaigns = []
     for campaign, detail in zip(final_campaigns, final_details):
+        key = (
+            campaign.get("filter_current_tariff"),
+            campaign.get("filter_arpu_segment"),
+            campaign["target_tariff"],
+        )
+        samples = observations.get(key, [])
+        sample_size = sum(size for size, _ in samples)
+        observed_lift = (
+            sum(size * lift for size, lift in samples) / sample_size
+            if sample_size
+            else None
+        )
+        standard_error = PER_CUSTOMER_STD / sqrt(sample_size) if sample_size else None
+        lower_bound = (
+            observed_lift - LOWER_BOUND_PENALTY * standard_error
+            if observed_lift is not None and standard_error is not None
+            else None
+        )
         campaigns.append({
             "campaign_name": campaign["campaign_name"],
             "current_tariff": campaign.get("filter_current_tariff"),
@@ -127,6 +162,10 @@ def _run_agent(seed: int) -> dict:
             "communication_cost": detail["cost"],
             "gross_lift": detail["gross_lift"],
             "net_gain": detail["gross_lift"] - detail["cost"],
+            "pilot_sample_size": sample_size,
+            "observed_lift_ratio": observed_lift,
+            "standard_error": standard_error,
+            "lower_bound": lower_bound,
             "status": "selected",
         })
 
