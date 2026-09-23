@@ -26,6 +26,11 @@ from experiments.agent_variants import (  # noqa: E402
     CallEnabledAgent,
     DiverseExplorationAgent,
     ExpandedExplorationAgent,
+    GeneratedCandidateAgent,
+)
+from experiments.candidate_generator import (  # noqa: E402
+    candidate_tuples,
+    generate_candidates,
 )
 from environment import make_environment  # noqa: E402
 from mock_environment import (  # noqa: E402
@@ -53,7 +58,7 @@ SCENARIOS = (
     "weak_history",
     "combined_shift",
 )
-AGENTS = {
+BASE_AGENTS = {
     "current": Agent,
     "expanded": ExpandedExplorationAgent,
     "broad": BroadExplorationAgent,
@@ -147,7 +152,7 @@ def main() -> None:
     parser.add_argument(
         "--agents",
         default="current",
-        help="Comma-separated agent names: current,expanded,broad,diverse,call",
+        help="Comma-separated agent names: current,expanded,broad,diverse,call,generated",
     )
     parser.add_argument(
         "--scenarios",
@@ -160,12 +165,19 @@ def main() -> None:
     tariffs = pd.read_csv(CASE_DIR / "data" / "dict_tariff.csv")
     history = pd.read_csv(CASE_DIR / "data" / "change_tariff.csv")
     base = _mock_impact_model(history)
+    generated = candidate_tuples(
+        generate_candidates(history, profile, tariffs, limit=30)
+    )
+    agents = {
+        **BASE_AGENTS,
+        "generated": lambda: GeneratedCandidateAgent(generated),
+    }
 
     selected_agents = [name.strip() for name in args.agents.split(",") if name.strip()]
     selected_scenarios = [
         name.strip() for name in args.scenarios.split(",") if name.strip()
     ]
-    unknown_agents = set(selected_agents) - set(AGENTS)
+    unknown_agents = set(selected_agents) - set(agents)
     unknown_scenarios = set(selected_scenarios) - set(SCENARIOS)
     if unknown_agents or unknown_scenarios:
         raise ValueError(
@@ -180,7 +192,7 @@ def main() -> None:
                 model = shifted_model(base, scenario, seed=10_000 + model_seed)
                 for pilot_seed in range(args.pilot_seeds):
                     result = evaluate(
-                        AGENTS[agent_name](), profile, tariffs, model, pilot_seed
+                        agents[agent_name](), profile, tariffs, model, pilot_seed
                     )
                     net_values.append(float(result["net_arpu_gain"]))
             rows.append(
