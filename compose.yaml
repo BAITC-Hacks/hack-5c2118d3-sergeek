@@ -1,0 +1,11 @@
+services:
+  hackathon:
+    build:
+      context: "./beeline_case_participants (1)"
+      dockerfile: Dockerfile
+    working_dir: /app
+    volumes:
+      - "./beeline_case_participants (1):/app"
+    command: ["sleep", "infinity"]
+    stdin_open: true
+    tty: true
