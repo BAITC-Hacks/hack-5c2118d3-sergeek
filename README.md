@@ -150,6 +150,9 @@ curl -X POST http://localhost:8000/api/simulations/run \
 - Медина — анализ данных и экономика каналов;
 - Даурен — frontend и UX аналитического dashboard.
 
+Сценарий трёхминутной демонстрации находится в `docs/DEMO_SCRIPT.md`, финальная
+проверка перед сдачей — в `docs/FINAL_CHECKLIST.md`.
+
 ## Файлы сдачи
 
 Обязательные файлы находятся в `beeline_case_participants (1)`:
