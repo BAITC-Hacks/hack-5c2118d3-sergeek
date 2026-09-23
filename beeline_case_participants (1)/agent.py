@@ -1,20 +1,24 @@
 """Adaptive campaign agent for the Beeline tariff marketing case.
 
-The agent uses historical analysis only to define a compact candidate set.  At
-runtime every decision is driven by pilots on the current audience.  Push is
-used for exploration and the first production version because it is free and
-therefore robust to noisy or shifted effects.
+The agent uses historical analysis only to define a compact candidate set. At
+runtime every decision is driven by pilots on the current audience. Push is
+used for exploration; final channels are allocated jointly under the live
+budget and contact limits.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
+from itertools import product
 from math import sqrt
 
 import pandas as pd
 
 
 PER_CUSTOMER_STD = 0.804
+PRODUCTION_CHANNELS = ("push", "sms", "digital_ads")
+MAX_FINAL_CAMPAIGNS = 5
+MAX_CUSTOMERS_PER_CAMPAIGN = 5000
 
 # Ranked offline from the supplied historical sample using the same safeguards
 # as the mock environment: previous ARPU >= 100 and relative change clipped to
@@ -63,7 +67,7 @@ class Agent:
             self._pilot(env, candidate, 200, observations)
 
         ranked = self._rank(candidates, observations, profile)
-        campaigns = []
+        selected = []
         used_cells: set[tuple[str, str]] = set()
 
         # A current-tariff/ARPU cell is used at most once, so final campaigns do
@@ -77,17 +81,88 @@ class Agent:
             cell = (current, arpu_segment)
             if cell in used_cells:
                 continue
-            campaigns.append(self._campaign(candidate, len(campaigns) + 1))
+            selected.append(candidate)
             used_cells.add(cell)
-            if len(campaigns) >= 5:
+            if len(selected) >= MAX_FINAL_CAMPAIGNS:
                 break
 
-        # The submission contract requires at least one final campaign.  If a
+        campaigns = self._allocate_channels(selected, observations, profile, env)
+
+        # The submission contract requires at least one final campaign. If a
         # very unlucky exploration round makes every confidence bound negative,
         # use the best observed arm with free push rather than failing outright.
         if not campaigns and ranked:
-            campaigns.append(self._campaign(ranked[0], 1))
+            campaigns.append(self._campaign(ranked[0], 1, "push"))
 
+        return campaigns
+
+    def _allocate_channels(self, candidates, observations, profile, env):
+        """Jointly choose campaigns and channels within the remaining limits."""
+        if not candidates:
+            return []
+
+        push_multiplier = float(env.channels["push"]["conversion_multiplier"])
+        choices = (None,) + tuple(
+            channel for channel in PRODUCTION_CHANNELS if channel in env.channels
+        )
+        economics = []
+
+        for candidate in candidates:
+            current, segment, _ = candidate
+            audience = profile[
+                (profile["current_tariff"] == current)
+                & (profile["arpu_segment"] == segment)
+            ].sort_values("ID_NUMBER").head(MAX_CUSTOMERS_PER_CAMPAIGN)
+            stats = self._stats(observations.get(candidate, []))
+            if audience.empty or stats is None:
+                continue
+
+            n_customers = len(audience)
+            mean_arpu = float(audience["predicted_arpu"].mean())
+            channel_values = {}
+            for channel in choices[1:]:
+                channel_config = env.channels[channel]
+                relative_multiplier = (
+                    float(channel_config["conversion_multiplier"]) / push_multiplier
+                )
+                cost_per_contact = float(channel_config["cost_per_contact"])
+                conservative_net = n_customers * (
+                    mean_arpu * stats["lower_bound"] * relative_multiplier
+                    - cost_per_contact
+                )
+                channel_values[channel] = {
+                    "cost": n_customers * cost_per_contact,
+                    "net": conservative_net,
+                }
+            economics.append((candidate, n_customers, channel_values))
+
+        best_score = float("-inf")
+        best_assignment = None
+        for assignment in product(choices, repeat=len(economics)):
+            if all(channel is None for channel in assignment):
+                continue
+            contacts = 0
+            cost = 0.0
+            score = 0.0
+            for (_, n_customers, channel_values), channel in zip(economics, assignment):
+                if channel is None:
+                    continue
+                contacts += n_customers
+                cost += channel_values[channel]["cost"]
+                score += channel_values[channel]["net"]
+            if contacts > env.remaining_contacts or cost > env.remaining_budget:
+                continue
+            if score > best_score:
+                best_score = score
+                best_assignment = assignment
+
+        if best_assignment is None:
+            return []
+
+        campaigns = []
+        for (candidate, _, _), channel in zip(economics, best_assignment):
+            if channel is not None:
+                campaigns.append(self._campaign(candidate, len(campaigns) + 1, channel))
         return campaigns
 
     @staticmethod
@@ -162,14 +237,14 @@ class Agent:
         }
 
     @staticmethod
-    def _campaign(candidate, number):
+    def _campaign(candidate, number, channel):
         current, arpu_segment, target = candidate
         return {
             "campaign_name": f"adaptive_{number}_{current}_{target}_{arpu_segment.lower()}",
             "filter_arpu_segment": arpu_segment,
             "filter_current_tariff": current,
             "target_tariff": target,
-            "channel": "push",
+            "channel": channel,
         }
 
     @staticmethod
