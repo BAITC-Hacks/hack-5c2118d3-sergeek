@@ -1,45 +1,787 @@
-import { useMemo, useState } from 'react'
-import * as Dialog from '@radix-ui/react-dialog'
-import { Activity, BarChart3, CircleDollarSign, Database, FlaskConical, Gauge, MousePointerClick, Send, ShieldCheck, Users, X } from 'lucide-react'
-import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { MetricCard } from './components/MetricCard'
-import { useDashboard } from './hooks/useDashboard'
-import type { Campaign, DataLimits, DashboardData, Pilot, SimulationData } from './types/api'
-import './App.css'
+import { useMemo, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import {
+  Activity,
+  BarChart3,
+  CircleDollarSign,
+  Database,
+  FlaskConical,
+  Gauge,
+  MousePointerClick,
+  Send,
+  ShieldCheck,
+  Users,
+  X,
+} from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { MetricCard } from "./components/MetricCard";
+import { useDashboard } from "./hooks/useDashboard";
+import type {
+  Campaign,
+  DataLimits,
+  DashboardData,
+  Pilot,
+  SimulationData,
+} from "./types/api";
+import "./App.css";
 
-type Tab = 'Overview' | 'Campaign Portfolio' | 'Agent Intelligence' | 'Simulation' | 'Data & Limits'
-const tabs: Tab[] = ['Overview', 'Campaign Portfolio', 'Agent Intelligence', 'Simulation', 'Data & Limits']
-const money = new Intl.NumberFormat('en-US')
+type Tab =
+  | "Overview"
+  | "Campaign Portfolio"
+  | "Agent Intelligence"
+  | "Simulation"
+  | "Data & Limits";
+const tabs: Tab[] = [
+  "Overview",
+  "Campaign Portfolio",
+  "Agent Intelligence",
+  "Simulation",
+  "Data & Limits",
+];
+const money = new Intl.NumberFormat("en-US");
 
 function App() {
-  const [tab, setTab] = useState<Tab>('Overview')
-  const { dashboard, campaigns, pilots, simulation, limits, isDemo, isLoading, runSimulation } = useDashboard()
-  const [simulationState, setSimulationState] = useState<SimulationData>()
-  if (isLoading || !dashboard || !simulation || !limits) return <div className="loading-screen"><span className="bee-loader" />Loading campaign intelligence…</div>
-  const activeSimulation = simulationState ?? simulation
-  const run = async () => setSimulationState((await runSimulation()).data)
-  return <div className="app-shell"><aside className="sidebar"><div className="brand"><span className="brand-mark"><i /><i /><i /></span><div><b>sergeek</b><small>CAMPAIGN AGENT</small></div></div><nav>{tabs.map((item, index) => <button className={tab === item ? 'nav-item active' : 'nav-item'} onClick={() => setTab(item)} key={item} type="button"><span>0{index + 1}</span>{item}</button>)}</nav><div className="side-status"><span className="pulse" />Agent available <small>Local workspace</small></div></aside><main className="main"><header className="topbar"><div><p className="eyebrow">BEELINE TARIFF MARKETING CAMPAIGNS</p><h1>{tab}</h1></div><div className="topbar-side">{isDemo && <span className="demo-badge">Demo data</span>}<span className="pass-badge"><ShieldCheck size={15} /> {dashboard.status}</span><div className="avatar">Y</div></div></header>{tab === 'Overview' && <Overview dashboard={dashboard} />}{tab === 'Campaign Portfolio' && <Portfolio campaigns={campaigns} />}{tab === 'Agent Intelligence' && <Intelligence pilots={pilots} />}{tab === 'Simulation' && <Simulation simulation={activeSimulation} onRun={run} />}{tab === 'Data & Limits' && <Limits limits={limits} />}</main></div>
+  const [tab, setTab] = useState<Tab>("Overview");
+  const {
+    dashboard,
+    campaigns,
+    pilots,
+    simulation,
+    limits,
+    isDemo,
+    isLoading,
+    runSimulation,
+  } = useDashboard();
+  const [simulationState, setSimulationState] = useState<SimulationData>();
+  if (isLoading || !dashboard || !simulation || !limits)
+    return (
+      <div className="loading-screen">
+        <span className="bee-loader" />
+        Loading campaign intelligence…
+      </div>
+    );
+  const activeSimulation = simulationState ?? simulation;
+  const run = async () => setSimulationState((await runSimulation()).data);
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <span className="brand-mark">
+            <i />
+            <i />
+            <i />
+          </span>
+          <div>
+            <b>sergeek</b>
+            <small>CAMPAIGN AGENT</small>
+          </div>
+        </div>
+        <nav>
+          {tabs.map((item, index) => (
+            <button
+              className={tab === item ? "nav-item active" : "nav-item"}
+              onClick={() => setTab(item)}
+              key={item}
+              type="button"
+            >
+              <span>0{index + 1}</span>
+              {item}
+            </button>
+          ))}
+        </nav>
+        <div className="side-status">
+          <span className="pulse" />
+          Agent available <small>Local workspace</small>
+        </div>
+      </aside>
+      <main className="main">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">BEELINE TARIFF MARKETING CAMPAIGNS</p>
+            <h1>{tab}</h1>
+          </div>
+          <div className="topbar-side">
+            {isDemo && <span className="demo-badge">Demo data</span>}
+            <span className="pass-badge">
+              <ShieldCheck size={15} /> {dashboard.status}
+            </span>
+            <div className="avatar">Y</div>
+          </div>
+        </header>
+        {tab === "Overview" && <Overview dashboard={dashboard} />}
+        {tab === "Campaign Portfolio" && <Portfolio campaigns={campaigns} />}
+        {tab === "Agent Intelligence" && (
+          <Intelligence pilots={pilots} campaigns={campaigns} />
+        )}
+        {tab === "Simulation" && (
+          <Simulation simulation={activeSimulation} onRun={run} />
+        )}
+        {tab === "Data & Limits" && <Limits limits={limits} />}
+      </main>
+    </div>
+  );
 }
 
 function Overview({ dashboard }: { dashboard: DashboardData }) {
-  const metrics = [['Baseline ARPU', money.format(dashboard.baselineArpu), 'starting portfolio value', CircleDollarSign], ['Campaign net gain', `+${money.format(dashboard.campaignNetGain)}`, 'local mock simulation', Activity], ['Budget used', `${money.format(dashboard.budgetUsed)} / ${money.format(dashboard.budgetLimit)}`, '71.8% of available budget', Gauge], ['Contacts', `${money.format(dashboard.contactsUsed)} / ${money.format(dashboard.contactsLimit)}`, 'within coverage limit', Users], ['Pilots', `${dashboard.pilotsUsed} / ${dashboard.pilotsLimit}`, '10 initial + 4 confirmation', FlaskConical], ['Final campaigns', `${dashboard.finalCampaigns} / ${dashboard.finalCampaignLimit}`, 'positive expected net only', Send]] as const
-  return <><section className="hero"><div><p className="eyebrow dark">ADAPTIVE TARIFF PLANNING UNDER UNCERTAINTY</p><h2>Make each campaign<br /><em>earn its place.</em></h2><p>Sergeek uses controlled push pilots and channel economics to build a portfolio under real budget and contact constraints.</p></div><div className="hero-orbit"><b>+3.63m</b><span>expected net gain</span></div></section><section className="metrics-grid">{metrics.map(([label, value, note, icon], index) => <MetricCard key={label} label={label} value={value} note={note} icon={icon} emphasis={index === 1} />)}</section><section className="process"><p className="eyebrow">HOW THE AGENT DECIDES</p><div>{['Historical data', 'Candidate hypotheses', 'Push pilots', 'Confidence adjustment', 'Channel optimizer', 'Final portfolio'].map((item, index) => <span key={item}><b>0{index + 1}</b>{item}</span>)}</div></section><section className="charts-grid"><ChartCard title="Budget by channel" note="Local mock simulation"><ResponsiveContainer width="100%" height={220}><PieChart><Pie data={dashboard.channelBudget} dataKey="value" nameKey="name" innerRadius={52} outerRadius={82} paddingAngle={4}>{dashboard.channelBudget.map((_, index) => <Cell fill={['#ffd900', '#252525', '#9c9c95'][index]} key={index} />)}</Pie><Tooltip formatter={(value) => `${money.format(Number(value))} ₸`} /></PieChart></ResponsiveContainer></ChartCard><ChartCard title="Expected net by campaign" note="After communication cost"><ResponsiveContainer width="100%" height={220}><BarChart data={dashboard.campaignNet}><XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} /><YAxis hide /><Tooltip formatter={(value) => `${value}k ₸`} /><Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#ffd900" /></BarChart></ResponsiveContainer></ChartCard><ChartCard title="Audience coverage" note="Contact constraint: 15,000"><ResponsiveContainer width="100%" height={220}><PieChart><Pie data={dashboard.audienceCoverage} dataKey="value" innerRadius={52} outerRadius={82}>{dashboard.audienceCoverage.map((_, index) => <Cell fill={index === 0 ? '#45a869' : '#e8e8e2'} key={index} />)}</Pie><Tooltip formatter={(value) => money.format(Number(value))} /></PieChart></ResponsiveContainer><div className="coverage-value"><b>{money.format(dashboard.contactsUsed)}</b><span>people reached</span></div></ChartCard></section><p className="simulation-caption">All testing results are Local mock simulation, not a guaranteed production outcome.</p></>
+  const metrics = [
+    [
+      "Baseline ARPU",
+      money.format(dashboard.baselineArpu),
+      "starting portfolio value",
+      CircleDollarSign,
+    ],
+    [
+      "Campaign net gain",
+      `+${money.format(dashboard.campaignNetGain)}`,
+      "local mock simulation",
+      Activity,
+    ],
+    [
+      "Budget used",
+      `${money.format(dashboard.budgetUsed)} / ${money.format(dashboard.budgetLimit)}`,
+      `${((dashboard.budgetUsed / dashboard.budgetLimit) * 100).toFixed(1)}% of available budget`,
+      Gauge,
+    ],
+    [
+      "Contacts",
+      `${money.format(dashboard.contactsUsed)} / ${money.format(dashboard.contactsLimit)}`,
+      "within coverage limit",
+      Users,
+    ],
+    [
+      "Pilots",
+      `${dashboard.pilotsUsed} / ${dashboard.pilotsLimit}`,
+      "10 initial + 4 confirmation",
+      FlaskConical,
+    ],
+    [
+      "Final campaigns",
+      `${dashboard.finalCampaigns} / ${dashboard.finalCampaignLimit}`,
+      "positive expected net only",
+      Send,
+    ],
+  ] as const;
+  return (
+    <>
+      <section className="hero">
+        <div>
+          <p className="eyebrow dark">
+            ADAPTIVE TARIFF PLANNING UNDER UNCERTAINTY
+          </p>
+          <h2>
+            Make each campaign
+            <br />
+            <em>earn its place.</em>
+          </h2>
+          <p>
+            Sergeek uses controlled push pilots and channel economics to build a
+            portfolio under real budget and contact constraints.
+          </p>
+        </div>
+        <div className="hero-orbit">
+          <b>+3.63m</b>
+          <span>median mock net gain</span>
+        </div>
+      </section>
+      <section className="metrics-grid">
+        {metrics.map(([label, value, note, icon], index) => (
+          <MetricCard
+            key={label}
+            label={label}
+            value={value}
+            note={note}
+            icon={icon}
+            emphasis={index === 1}
+          />
+        ))}
+      </section>
+      <section className="process">
+        <p className="eyebrow">HOW THE AGENT DECIDES</p>
+        <div>
+          {[
+            "Historical data",
+            "Candidate hypotheses",
+            "Push pilots",
+            "Confidence adjustment",
+            "Channel optimizer",
+            "Final portfolio",
+          ].map((item, index) => (
+            <span key={item}>
+              <b>0{index + 1}</b>
+              {item}
+            </span>
+          ))}
+        </div>
+      </section>
+      <section className="charts-grid">
+        <ChartCard title="Budget by channel" note="Local mock simulation">
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie
+                data={dashboard.channelBudget}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={52}
+                outerRadius={82}
+                paddingAngle={4}
+              >
+                {dashboard.channelBudget.map((_, index) => (
+                  <Cell
+                    fill={["#ffd900", "#252525", "#9c9c95"][index]}
+                    key={index}
+                  />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={(value) => `${money.format(Number(value))} units`}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+        <ChartCard
+          title="Expected net by campaign"
+          note="After communication cost"
+        >
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={dashboard.campaignNet}>
+              <XAxis
+                dataKey="name"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 10 }}
+              />
+              <YAxis hide />
+              <Tooltip formatter={(value) => `${value}k units`} />
+              <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#ffd900" />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+        <ChartCard title="Audience coverage" note="Contact constraint: 15,000">
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie
+                data={dashboard.audienceCoverage}
+                dataKey="value"
+                innerRadius={52}
+                outerRadius={82}
+              >
+                {dashboard.audienceCoverage.map((_, index) => (
+                  <Cell
+                    fill={index === 0 ? "#45a869" : "#e8e8e2"}
+                    key={index}
+                  />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value) => money.format(Number(value))} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="coverage-value">
+            <b>{money.format(dashboard.contactsUsed)}</b>
+            <span>people reached</span>
+          </div>
+        </ChartCard>
+      </section>
+      <p className="simulation-caption">
+        All testing results are Local mock simulation, not a guaranteed
+        production outcome.
+      </p>
+    </>
+  );
 }
 
 function Portfolio({ campaigns }: { campaigns: Campaign[] }) {
-  const [channel, setChannel] = useState('All'); const [segment, setSegment] = useState('All'); const [search, setSearch] = useState(''); const [sortBy, setSortBy] = useState<'expectedNetGain' | 'audienceSize'>('expectedNetGain'); const [selected, setSelected] = useState<Campaign | null>(null)
-  const filtered = useMemo(() => campaigns.filter((item) => (channel === 'All' || item.channel === channel) && (segment === 'All' || item.arpuSegment === segment) && item.name.toLowerCase().includes(search.toLowerCase())).sort((a, b) => b[sortBy] - a[sortBy]), [campaigns, channel, search, segment, sortBy])
-  return <><section className="page-intro"><p className="eyebrow">FINAL RECOMMENDATIONS</p><h2>Campaign portfolio</h2><p>Only campaigns with positive observed effect are eligible for the final portfolio.</p></section><section className="filter-row"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search campaign…" /><select value={channel} onChange={(event) => setChannel(event.target.value)}><option>All</option><option>Push</option><option>SMS</option><option>Digital ads</option><option>Call</option></select><select value={segment} onChange={(event) => setSegment(event.target.value)}><option>All</option><option>High ARPU</option><option>Mid ARPU</option><option>Low ARPU</option></select><button onClick={() => setSortBy(sortBy === 'expectedNetGain' ? 'audienceSize' : 'expectedNetGain')} type="button">Sort: {sortBy === 'expectedNetGain' ? 'net gain' : 'audience'}</button></section><section className="table-card"><div className="table-scroll"><table><thead><tr><th>Campaign</th><th>Current tariff</th><th>ARPU segment</th><th>Target tariff</th><th>Channel</th><th>Audience</th><th>Comms cost</th><th>Gross lift</th><th>Net gain</th><th>Confidence</th><th>Status</th></tr></thead><tbody>{filtered.map((item) => <tr key={item.id} onClick={() => setSelected(item)}><td><b>{item.name}</b><small>{item.id}</small></td><td>{item.currentTariff}</td><td>{item.arpuSegment}</td><td>{item.targetTariff}</td><td><ChannelBadge channel={item.channel} /></td><td>{money.format(item.audienceSize)}</td><td>{money.format(item.communicationCost)} ₸</td><td>+{money.format(item.expectedGrossLift)} ₸</td><td className="positive">+{money.format(item.expectedNetGain)} ₸</td><td><span className={`confidence ${item.confidence.toLowerCase()}`}>{item.confidence}</span></td><td><span className={item.status === 'Ready' ? 'ready-dot' : 'testing-dot'}>{item.status}</span></td></tr>)}</tbody></table></div></section>{selected && <CampaignDialog campaign={selected} onClose={() => setSelected(null)} />}</>
+  const [channel, setChannel] = useState("All");
+  const [segment, setSegment] = useState("All");
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"expectedNetGain" | "audienceSize">(
+    "expectedNetGain",
+  );
+  const [selected, setSelected] = useState<Campaign | null>(null);
+  const filtered = useMemo(
+    () =>
+      campaigns
+        .filter(
+          (item) =>
+            (channel === "All" || item.channel === channel) &&
+            (segment === "All" ||
+              item.arpuSegment.split(" ")[0].toUpperCase() === segment) &&
+            item.name.toLowerCase().includes(search.toLowerCase()),
+        )
+        .sort((a, b) => b[sortBy] - a[sortBy]),
+    [campaigns, channel, search, segment, sortBy],
+  );
+  return (
+    <>
+      <section className="page-intro">
+        <p className="eyebrow">FINAL RECOMMENDATIONS</p>
+        <h2>Campaign portfolio</h2>
+        <p>
+          Only campaigns with positive observed effect are eligible for the
+          final portfolio.
+        </p>
+      </section>
+      <section className="filter-row">
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search campaign…"
+        />
+        <select
+          value={channel}
+          onChange={(event) => setChannel(event.target.value)}
+        >
+          <option>All</option>
+          <option>Push</option>
+          <option>SMS</option>
+          <option>Digital ads</option>
+          <option>Call</option>
+        </select>
+        <select
+          value={segment}
+          onChange={(event) => setSegment(event.target.value)}
+        >
+          <option>All</option>
+          <option value="HIGH">High ARPU</option>
+          <option value="MID">Mid ARPU</option>
+          <option value="LOW">Low ARPU</option>
+        </select>
+        <button
+          onClick={() =>
+            setSortBy(
+              sortBy === "expectedNetGain" ? "audienceSize" : "expectedNetGain",
+            )
+          }
+          type="button"
+        >
+          Sort: {sortBy === "expectedNetGain" ? "net gain" : "audience"}
+        </button>
+      </section>
+      <section className="table-card">
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th>Current tariff</th>
+                <th>ARPU segment</th>
+                <th>Target tariff</th>
+                <th>Channel</th>
+                <th>Audience</th>
+                <th>Comms cost</th>
+                <th>Gross lift</th>
+                <th>Net gain</th>
+                <th>Confidence</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((item) => (
+                <tr key={item.id} onClick={() => setSelected(item)}>
+                  <td>
+                    <b>{item.name}</b>
+                    <small>{item.id}</small>
+                  </td>
+                  <td>{item.currentTariff}</td>
+                  <td>{item.arpuSegment}</td>
+                  <td>{item.targetTariff}</td>
+                  <td>
+                    <ChannelBadge channel={item.channel} />
+                  </td>
+                  <td>{money.format(item.audienceSize)}</td>
+                  <td>{money.format(item.communicationCost)} units</td>
+                  <td>+{money.format(item.expectedGrossLift)} units</td>
+                  <td className="positive">
+                    +{money.format(item.expectedNetGain)} units
+                  </td>
+                  <td>
+                    <span
+                      className={`confidence ${item.confidence.toLowerCase()}`}
+                    >
+                      {item.confidence}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className={
+                        item.status === "Ready" ? "ready-dot" : "testing-dot"
+                      }
+                    >
+                      {item.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {selected && (
+        <CampaignDialog campaign={selected} onClose={() => setSelected(null)} />
+      )}
+    </>
+  );
 }
 
-function Intelligence({ pilots }: { pilots: Pilot[] }) { const confidence = pilots.map((pilot) => ({ name: pilot.id, value: pilot.confidence })); return <><section className="page-intro"><p className="eyebrow">REASONING, NOT MAGIC</p><h2>Agent intelligence</h2><p>The agent learns across 15 tariff hypotheses, controlled pilots and portfolio-level constraints.</p></section><section className="stage-grid">{[['15', 'source tariff hypotheses'], ['10 × 120', 'initial push pilots'], ['4 × 200', 'confirmation pilots'], ['1', 'channel-optimized portfolio']].map(([value, label]) => <article key={label}><b>{value}</b><span>{label}</span></article>)}</section><section className="intelligence-grid"><ChartCard title="Confidence by observed pilot" note="Weighted mean, standard error and lower confidence bound"><ResponsiveContainer width="100%" height={245}><BarChart data={confidence}><XAxis dataKey="name" tickLine={false} axisLine={false} /><YAxis domain={[0, 100]} tickLine={false} axisLine={false} /><Tooltip /><Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#45a869" /></BarChart></ResponsiveContainer></ChartCard><article className="why-card"><p className="eyebrow">WHY THIS CAMPAIGN WAS SELECTED</p><h3>Family upgrade</h3><p>It keeps a positive lower confidence bound after confirmation and wins the channel comparison without colliding with another chosen audience.</p><div><span>Observed net</span><b>+980k ₸</b></div><div><span>Selected channel</span><b>SMS</b></div></article></section><section className="timeline-card"><div><p className="eyebrow">PILOT TIMELINE</p><h3>Evidence collected before scale</h3></div>{pilots.map((pilot) => <article className="pilot-row" key={pilot.id}><span className={pilot.status === 'Completed' ? 'pilot-icon done' : 'pilot-icon'}><FlaskConical size={15} /></span><div><b>{pilot.title}</b><small>{pilot.id} · {pilot.phase} pilot · {pilot.audience} people</small></div><span>{pilot.result}</span><strong>{pilot.confidence}% confidence</strong></article>)}</section><section className="decision-chain">{['Weighted mean', 'Standard error', 'Lower confidence bound', 'Exclude overlaps', 'Joint channel search', 'Final campaign portfolio'].map((step, index) => <span key={step}><b>{index + 1}</b>{step}</span>)}</section></>
+function Intelligence({
+  pilots,
+  campaigns,
+}: {
+  pilots: Pilot[];
+  campaigns: Campaign[];
+}) {
+  const confidence = pilots.map((pilot) => ({
+    name: pilot.id,
+    value: pilot.confidence,
+  }));
+  const featured = campaigns[0];
+  return (
+    <>
+      <section className="page-intro">
+        <p className="eyebrow">REASONING, NOT MAGIC</p>
+        <h2>Agent intelligence</h2>
+        <p>
+          The agent learns across 15 tariff hypotheses, controlled pilots and
+          portfolio-level constraints.
+        </p>
+      </section>
+      <section className="stage-grid">
+        {[
+          ["15", "source tariff hypotheses"],
+          ["10 × 120", "initial push pilots"],
+          ["4 × 200", "confirmation pilots"],
+          ["1", "channel-optimized portfolio"],
+        ].map(([value, label]) => (
+          <article key={label}>
+            <b>{value}</b>
+            <span>{label}</span>
+          </article>
+        ))}
+      </section>
+      <section className="intelligence-grid">
+        <ChartCard
+          title="Confidence by observed pilot"
+          note="Weighted mean, standard error and lower confidence bound"
+        >
+          <ResponsiveContainer width="100%" height={245}>
+            <BarChart data={confidence}>
+              <XAxis dataKey="name" tickLine={false} axisLine={false} />
+              <YAxis domain={[0, 100]} tickLine={false} axisLine={false} />
+              <Tooltip />
+              <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#45a869" />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+        <article className="why-card">
+          <p className="eyebrow">WHY THIS CAMPAIGN WAS SELECTED</p>
+          <h3>{featured?.name ?? "Validated campaign"}</h3>
+          <p>
+            It keeps a positive lower confidence bound after confirmation and
+            wins the channel comparison without colliding with another chosen
+            audience.
+          </p>
+          <div>
+            <span>Observed net</span>
+            <b>+{money.format(featured?.expectedNetGain ?? 0)} units</b>
+          </div>
+          <div>
+            <span>Selected channel</span>
+            <b>{featured?.channel ?? "Push"}</b>
+          </div>
+        </article>
+      </section>
+      <section className="timeline-card">
+        <div>
+          <p className="eyebrow">PILOT TIMELINE</p>
+          <h3>Evidence collected before scale</h3>
+        </div>
+        {pilots.map((pilot) => (
+          <article className="pilot-row" key={pilot.id}>
+            <span
+              className={
+                pilot.status === "Completed" ? "pilot-icon done" : "pilot-icon"
+              }
+            >
+              <FlaskConical size={15} />
+            </span>
+            <div>
+              <b>{pilot.title}</b>
+              <small>
+                {pilot.id} · {pilot.phase} pilot · {pilot.audience} people
+              </small>
+            </div>
+            <span>{pilot.result}</span>
+            <strong>{pilot.confidence}% confidence</strong>
+          </article>
+        ))}
+      </section>
+      <section className="decision-chain">
+        {[
+          "Weighted mean",
+          "Standard error",
+          "Lower confidence bound",
+          "Exclude overlaps",
+          "Joint channel search",
+          "Final campaign portfolio",
+        ].map((step, index) => (
+          <span key={step}>
+            <b>{index + 1}</b>
+            {step}
+          </span>
+        ))}
+      </section>
+    </>
+  );
 }
 
-function Simulation({ simulation, onRun }: { simulation: SimulationData; onRun: () => void }) { return <><section className="simulation-hero"><div><p className="eyebrow dark">LOCAL EVALUATION</p><h2>Stable across<br />uncertain outcomes.</h2><p>Mock simulation validates mechanics and stability. Final judging uses hidden audience effects.</p><button onClick={onRun} type="button"><MousePointerClick size={16} /> Run local simulation</button></div><div className="pass-ring"><span>{simulation.profitableRuns}/{simulation.totalRuns}</span><small>profitable local runs</small><b>PASS</b></div></section><section className="metrics-grid four"><MetricCard label="Median net" value={`+${(simulation.medianNet / 1_000_000).toFixed(2)}m`} note="local mock simulation" icon={BarChart3} emphasis /><MetricCard label="Minimum net" value={`+${(simulation.minimumNet / 1_000_000).toFixed(2)}m`} note="worst observed run" icon={Activity} /><MetricCard label="Maximum net" value={`+${(simulation.maximumNet / 1_000_000).toFixed(2)}m`} note="best observed run" icon={Activity} /><MetricCard label="Control seed net" value={`+${(simulation.controlSeedNet / 1_000_000).toFixed(2)}m`} note="reproducibility check" icon={ShieldCheck} /></section><section className="intelligence-grid"><ChartCard title="Distribution of simulation results" note="100 local mock runs"><ResponsiveContainer width="100%" height={245}><BarChart data={simulation.distribution}><XAxis dataKey="bin" tickLine={false} axisLine={false} /><YAxis hide /><Tooltip /><Bar dataKey="count" fill="#ffd900" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard><ChartCard title="Portfolio comparison" note="Expected net, millions ₸"><ResponsiveContainer width="100%" height={245}><BarChart data={simulation.comparison}><XAxis dataKey="name" tickLine={false} axisLine={false} /><YAxis /><Tooltip /><Bar dataKey="value" fill="#252525" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard></section><p className="simulation-caption">Mock simulation validates mechanics and stability. Final judging uses hidden audience effects.</p></> }
+function Simulation({
+  simulation,
+  onRun,
+}: {
+  simulation: SimulationData;
+  onRun: () => void;
+}) {
+  return (
+    <>
+      <section className="simulation-hero">
+        <div>
+          <p className="eyebrow dark">LOCAL EVALUATION</p>
+          <h2>
+            Stable across
+            <br />
+            uncertain outcomes.
+          </h2>
+          <p>
+            Mock simulation validates mechanics and stability. Final judging
+            uses hidden audience effects.
+          </p>
+          <button onClick={onRun} type="button">
+            <MousePointerClick size={16} /> Run local simulation
+          </button>
+        </div>
+        <div className="pass-ring">
+          <span>
+            {simulation.profitableRuns}/{simulation.totalRuns}
+          </span>
+          <small>profitable local runs</small>
+          <b>PASS</b>
+        </div>
+      </section>
+      <section className="metrics-grid four">
+        <MetricCard
+          label="Median net"
+          value={`+${(simulation.medianNet / 1_000_000).toFixed(2)}m`}
+          note="local mock simulation"
+          icon={BarChart3}
+          emphasis
+        />
+        <MetricCard
+          label="Minimum net"
+          value={`+${(simulation.minimumNet / 1_000_000).toFixed(2)}m`}
+          note="worst observed run"
+          icon={Activity}
+        />
+        <MetricCard
+          label="Maximum net"
+          value={`+${(simulation.maximumNet / 1_000_000).toFixed(2)}m`}
+          note="best observed run"
+          icon={Activity}
+        />
+        <MetricCard
+          label="Control seed net"
+          value={`+${(simulation.controlSeedNet / 1_000_000).toFixed(2)}m`}
+          note="reproducibility check"
+          icon={ShieldCheck}
+        />
+      </section>
+      <section className="intelligence-grid">
+        <ChartCard
+          title="Distribution of simulation results"
+          note="100 local mock runs"
+        >
+          <ResponsiveContainer width="100%" height={245}>
+            <BarChart data={simulation.distribution}>
+              <XAxis dataKey="bin" tickLine={false} axisLine={false} />
+              <YAxis hide />
+              <Tooltip />
+              <Bar dataKey="count" fill="#ffd900" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+        <ChartCard
+          title="Portfolio comparison"
+          note="Expected net, millions of units"
+        >
+          <ResponsiveContainer width="100%" height={245}>
+            <BarChart data={simulation.comparison}>
+              <XAxis dataKey="name" tickLine={false} axisLine={false} />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="value" fill="#252525" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </section>
+      <p className="simulation-caption">
+        Mock simulation validates mechanics and stability. Final judging uses
+        hidden audience effects.
+      </p>
+    </>
+  );
+}
 
-function Limits({ limits }: { limits: DataLimits }) { const rows = [['Subscribers', money.format(limits.subscribers)], ['Baseline ARPU', money.format(limits.baselineArpu)], ['Budget', `${money.format(limits.budget)} ₸`], ['Contact cap', money.format(limits.contacts)], ['Pilot cap', `${limits.pilots} pilots`], ['Pilot size', `max ${limits.pilotSize}`], ['Final campaigns', `max ${limits.finalCampaigns}`], ['Campaign size', `max ${money.format(limits.campaignSize)}`]]; return <><section className="page-intro"><p className="eyebrow">CONSTRAINTS DEFINE THE GAME</p><h2>Data & limits</h2><p>The optimiser never recommends a portfolio that exceeds the environment constraints.</p></section><section className="limits-grid">{rows.map(([label, value], index) => <article key={label}><span>0{index + 1}</span><p>{label}</p><b>{value}</b></article>)}</section><section className="table-card"><div className="channel-heading"><div><p className="eyebrow">CHANNEL ECONOMICS</p><h3>Cost and conversion multiplier</h3></div><Database size={22} /></div><table className="channel-table"><thead><tr><th>Channel</th><th>Communication cost</th><th>Conversion multiplier</th><th>Role in optimisation</th></tr></thead><tbody>{limits.channels.map((item) => <tr key={item.name}><td><ChannelBadge channel={item.name} /></td><td>{item.cost === 0 ? 'Free' : `${item.cost} ₸ / contact`}</td><td><b>{item.multiplier}</b></td><td>{item.name === 'Push' ? 'Cheap baseline channel' : item.name === 'Call' ? 'High-cost, high-intent option' : 'Channel-aware portfolio option'}</td></tr>)}</tbody></table></section></> }
+function Limits({ limits }: { limits: DataLimits }) {
+  const rows = [
+    ["Subscribers", money.format(limits.subscribers)],
+    ["Baseline ARPU", money.format(limits.baselineArpu)],
+    ["Budget", `${money.format(limits.budget)} units`],
+    ["Contact cap", money.format(limits.contacts)],
+    ["Pilot cap", `${limits.pilots} pilots`],
+    ["Pilot size", `max ${limits.pilotSize}`],
+    ["Final campaigns", `max ${limits.finalCampaigns}`],
+    ["Campaign size", `max ${money.format(limits.campaignSize)}`],
+  ];
+  return (
+    <>
+      <section className="page-intro">
+        <p className="eyebrow">CONSTRAINTS DEFINE THE GAME</p>
+        <h2>Data & limits</h2>
+        <p>
+          The optimiser never recommends a portfolio that exceeds the
+          environment constraints.
+        </p>
+      </section>
+      <section className="limits-grid">
+        {rows.map(([label, value], index) => (
+          <article key={label}>
+            <span>0{index + 1}</span>
+            <p>{label}</p>
+            <b>{value}</b>
+          </article>
+        ))}
+      </section>
+      <section className="table-card">
+        <div className="channel-heading">
+          <div>
+            <p className="eyebrow">CHANNEL ECONOMICS</p>
+            <h3>Cost and conversion multiplier</h3>
+          </div>
+          <Database size={22} />
+        </div>
+        <table className="channel-table">
+          <thead>
+            <tr>
+              <th>Channel</th>
+              <th>Communication cost</th>
+              <th>Conversion multiplier</th>
+              <th>Role in optimisation</th>
+            </tr>
+          </thead>
+          <tbody>
+            {limits.channels.map((item) => (
+              <tr key={item.name}>
+                <td>
+                  <ChannelBadge channel={item.name} />
+                </td>
+                <td>
+                  {item.cost === 0 ? "Free" : `${item.cost} units / contact`}
+                </td>
+                <td>
+                  <b>{item.multiplier}</b>
+                </td>
+                <td>
+                  {item.name === "Push"
+                    ? "Cheap baseline channel"
+                    : item.name === "Call"
+                      ? "High-cost, high-intent option"
+                      : "Channel-aware portfolio option"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </>
+  );
+}
 
-function ChartCard({ title, note, children }: { title: string; note: string; children: React.ReactNode }) { return <article className="chart-card"><div><h3>{title}</h3><p>{note}</p></div>{children}</article> }
-function ChannelBadge({ channel }: { channel: string }) { return <span className={`channel-badge ${channel.toLowerCase().replace(' ', '-')}`}>{channel}</span> }
-function CampaignDialog({ campaign, onClose }: { campaign: Campaign; onClose: () => void }) { return <Dialog.Root open onOpenChange={(open) => !open && onClose()}><Dialog.Portal><Dialog.Overlay className="dialog-overlay" /><Dialog.Content className="dialog"><Dialog.Close className="dialog-close"><X size={18} /></Dialog.Close><p className="eyebrow">CAMPAIGN DETAIL · {campaign.id}</p><Dialog.Title>{campaign.name}</Dialog.Title><Dialog.Description>{campaign.rationale}</Dialog.Description><div className="dialog-stats"><span><small>Expected net</small><b>+{money.format(campaign.expectedNetGain)} ₸</b></span><span><small>Audience</small><b>{money.format(campaign.audienceSize)}</b></span><span><small>Channel</small><ChannelBadge channel={campaign.channel} /></span></div><div className="dialog-route"><span>{campaign.currentTariff}</span><b>→</b><span>{campaign.targetTariff}</span></div></Dialog.Content></Dialog.Portal></Dialog.Root> }
-export default App
+function ChartCard({
+  title,
+  note,
+  children,
+}: {
+  title: string;
+  note: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <article className="chart-card">
+      <div>
+        <h3>{title}</h3>
+        <p>{note}</p>
+      </div>
+      {children}
+    </article>
+  );
+}
+function ChannelBadge({ channel }: { channel: string }) {
+  return (
+    <span
+      className={`channel-badge ${channel.toLowerCase().replace(" ", "-")}`}
+    >
+      {channel}
+    </span>
+  );
+}
+function CampaignDialog({
+  campaign,
+  onClose,
+}: {
+  campaign: Campaign;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="dialog-overlay" />
+        <Dialog.Content className="dialog">
+          <Dialog.Close className="dialog-close">
+            <X size={18} />
+          </Dialog.Close>
+          <p className="eyebrow">CAMPAIGN DETAIL · {campaign.id}</p>
+          <Dialog.Title>{campaign.name}</Dialog.Title>
+          <Dialog.Description>{campaign.rationale}</Dialog.Description>
+          <div className="dialog-stats">
+            <span>
+              <small>Expected net</small>
+              <b>+{money.format(campaign.expectedNetGain)} units</b>
+            </span>
+            <span>
+              <small>Audience</small>
+              <b>{money.format(campaign.audienceSize)}</b>
+            </span>
+            <span>
+              <small>Channel</small>
+              <ChannelBadge channel={campaign.channel} />
+            </span>
+          </div>
+          <div className="dialog-route">
+            <span>{campaign.currentTariff}</span>
+            <b>→</b>
+            <span>{campaign.targetTariff}</span>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+export default App;

@@ -19,3 +19,14 @@ services:
       - ".:/workspace"
     ports:
       - "8000:8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8000
+    depends_on:
+      - api
+    ports:
+      - "5173:80"

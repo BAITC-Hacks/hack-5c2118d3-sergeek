@@ -101,6 +101,8 @@ docker compose exec hackathon python make_submission.py
 После запуска API доступно по адресу `http://localhost:8000`, интерактивная
 OpenAPI-документация — `http://localhost:8000/docs`.
 
+Аналитический dashboard доступен по адресу `http://localhost:5173`.
+
 ## API для dashboard
 
 | Метод | Endpoint | Назначение |
@@ -125,6 +127,7 @@ curl -X POST http://localhost:8000/api/simulations/run \
 ```text
 .
 ├── api/                         # FastAPI для dashboard
+├── frontend/                    # React + TypeScript dashboard
 ├── beeline_case_participants (1)/
 │   ├── agent.py                 # сдаваемый адаптивный агент
 │   ├── submission.csv           # воспроизводимый план кампаний

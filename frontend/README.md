@@ -15,6 +15,15 @@ Build the production bundle:
 npm run build
 ```
 
+From the repository root, the complete dashboard and API can also be started
+with Docker:
+
+```bash
+docker compose up -d --build frontend api
+```
+
+Open `http://localhost:5173`.
+
 ## Data connection
 
 Copy `.env.example` to `.env` and set `VITE_API_URL` when FastAPI is available. The service layer expects:
