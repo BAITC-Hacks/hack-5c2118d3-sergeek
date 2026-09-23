@@ -15,7 +15,14 @@ type ApiPilot = { name: string; customers: number; observed_lift_ratio: number; 
 type ApiSimulation = { runs: number; positive_runs: number; median_net: number; min_net: number; max_net: number; values?: number[]; source: string; is_mock: boolean }
 
 async function fetchApi<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBase}${path}`, init)
+  const abort = new AbortController()
+  const timeout = window.setTimeout(() => abort.abort(), 6_000)
+  let response: Response
+  try {
+    response = await fetch(`${apiBase}${path}`, { ...init, signal: abort.signal })
+  } finally {
+    window.clearTimeout(timeout)
+  }
   if (!response.ok) throw new Error(`Request failed: ${response.status}`)
   return response.json() as Promise<T>
 }
